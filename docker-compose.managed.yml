@@ -1,0 +1,23 @@
+# Single-port 3x-ui: panel, subscriptions and VLESS behind one port.
+#   cp .env.managed.example .env.managed
+#   docker compose -f docker-compose.managed.yml up -d --build
+services:
+  managed-vpn:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+      target: managed
+    container_name: managed_vpn
+    env_file: .env.managed
+    volumes:
+      # Panel database, plus Caddy's certificates in direct mode.
+      - managed-vpn-data:/etc/x-ui
+    ports:
+      # edge mode: plain HTTP. Put your TLS terminator in front of this port.
+      - "8080:8080"
+      # direct mode: comment the line above and use this instead.
+      # - "443:443"
+    restart: unless-stopped
+
+volumes:
+  managed-vpn-data:
