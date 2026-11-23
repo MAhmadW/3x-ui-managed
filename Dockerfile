@@ -70,7 +70,7 @@ ENV XUI_ENABLE_FAIL2BAN="true"
 ENV XUI_DB_TYPE=""
 ENV XUI_DB_DSN=""
 EXPOSE 2053
-# No VOLUME: some managed platforms (Railway, for one) reject images that
+# No VOLUME: some managed platforms reject images that
 # declare one. Mount /etc/x-ui at deploy time to keep the database.
 CMD [ "./x-ui" ]
 ENTRYPOINT [ "/app/DockerEntrypoint.sh" ]
