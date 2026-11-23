@@ -39,7 +39,7 @@ The names of these steps differ per platform, but the steps are the same:
    | `PORT` | `8080` |
    | `PANEL_PATH` | a random path, e.g. `/3f9c…/` |
    | `VPN_PATH_PREFIX` | a *different* random path, e.g. `/a71e…` |
-   | `PANEL_USERNAME`, `PANEL_PASSWORD` | your panel login |
+   | `PANEL_USERNAME`, `PANEL_PASSWORD` | your panel login (required) |
 
 2. Attach a persistent volume at `/etc/x-ui`. Without it, every redeploy wipes users and
    inbounds. On a platform with no persistent disk, set `XUI_DB_TYPE=postgres` and
@@ -56,17 +56,25 @@ default `/panel/`, returns 404 by design.
 
 In the panel, *Inbounds → Add Inbound*:
 
-| Field | Value |
-|---|---|
-| Protocol | `vless` |
-| Listen IP | `127.0.0.1` |
-| Port | any free port from `10000` to `10999`, e.g. `10035` |
-| Transmission | `XHTTP` |
-| Path | `<VPN_PATH_PREFIX>/<port>`, e.g. `/a71e…/10035` |
-| Security | `none` |
+| Tab | Field | Value |
+|---|---|---|
+| Basics | Protocol | `vless` |
+| Basics | Address | `127.0.0.1` |
+| Basics | Port | any free port from `10000` to `10999`, e.g. `10035` |
+| Stream | Transmission | `XHTTP` |
+| Stream | Host | leave blank |
+| Stream | Path | `<VPN_PATH_PREFIX>/<port>`, e.g. `/a71e…/10035` |
+| Security | Security | `none` |
 
-The port in the path must be the inbound's own port. Ports outside 10000–10999 are not
-routed.
+Leave every other field at its default.
+
+- **Address** is the address the inbound listens on; the form has no field called
+  "Listen IP". Left blank it listens on all addresses, which also works, but `127.0.0.1`
+  keeps the inbound reachable only through Caddy.
+- **Host** restricts which HTTP `Host` header the inbound accepts. Blank accepts any, and
+  the client then sends your public domain by itself. A value that does not match what
+  the platform forwards makes every request fail, so blank is the safe choice.
+- **Path** must contain the inbound's own port. Ports outside 10000–10999 are not routed.
 
 ## 3. Add a host so share links are correct
 
@@ -77,10 +85,14 @@ with *Add Host*:
 | Field | Value |
 |---|---|
 | Inbounds | the inbound from step 2 |
-| Address | your public domain |
+| Address | your public domain, as a bare hostname: no `https://`, no path |
 | Port | `443` |
 | Security | `tls` |
-| SNI | your public domain, or tick "Use address as SNI" |
+| SNI | tick "Use address as SNI", or enter the same bare hostname |
+| Host header | leave blank |
+
+The address and SNI are hostnames, not URLs. The panel accepts `https://<domain>` in the
+SNI field without complaint, and the resulting link cannot connect.
 
 Older guides call this "External Proxy" inside the inbound form. That section was
 removed; Hosts replaces it.
@@ -92,7 +104,8 @@ The imported profile should show:
 
 - address = your public domain, port **443**
 - transmission **XHTTP**, path = `<VPN_PATH_PREFIX>/<port>`
-- security **TLS**, SNI = your public domain
+- security **TLS**, SNI = your public domain, with no `https://` in front
+- Host empty or your public domain, never `127.0.0.1`
 
 ## Problems you are likely to hit
 
@@ -120,6 +133,10 @@ in 10000–10999 and connect to 443.
 The client log is misleading here: "accepted" only means the local SOCKS port took the
 request. Check the platform's HTTP request log for the status of the client's requests.
 
+- **No requests from the client at all**: the connection fails before it reaches the
+  service, so the SNI or Host in the profile is wrong. The two we hit were a scheme in
+  the SNI (`https://<domain>`) and `127.0.0.1` entered as Host. Fix the SNI on the Hosts
+  page, clear Host there and in the inbound's Stream tab, then re-import the link.
 - **404 on paths starting with `PANEL_PATH`**: the inbound's path uses the panel path
   instead of `VPN_PATH_PREFIX`, so requests are going to the panel. Fix the path, then
   re-import the link.

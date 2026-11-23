@@ -40,19 +40,16 @@ cp .env.managed.example .env.managed
 docker compose -f docker-compose.managed.yml up -d --build
 ```
 
-Edit `PANEL_PATH` and `VPN_PATH_PREFIX` in `.env.managed` first. With the example values
+Before the second command, edit `.env.managed`: fill in `PANEL_USERNAME` and
+`PANEL_PASSWORD`, and change `PANEL_PATH` and `VPN_PATH_PREFIX`. With the example paths
 the panel is at `http://localhost:8080/change-me-panel/`.
 
 The compose file publishes `8080:8080`, so leave `PORT` unset there. For direct mode, set
 `PROXY_MODE=direct` and `DOMAIN`, and swap the published port to `443:443` as the comment
 in the compose file shows.
 
-If `PANEL_USERNAME` and `PANEL_PASSWORD` are not set, the first start generates a login
-and prints it once in the container log:
-
-```bash
-docker logs managed_vpn 2>&1 | grep "No panel user existed"
-```
+`PANEL_USERNAME` and `PANEL_PASSWORD` are required. The container stops at start if
+either is missing, so the login never has to be dug out of the log.
 
 ## Run it on a platform
 
@@ -77,13 +74,13 @@ the volume at deploy time.
 | `DOMAIN` | — | required in direct mode |
 | `PANEL_PATH` | `/panel/` | letters, digits, `_` and `-`; applied to the panel on every start |
 | `VPN_PATH_PREFIX` | `/vpn` | same character rules; must not be inside `PANEL_PATH`, or contain it |
-| `PANEL_USERNAME`, `PANEL_PASSWORD` | unset | set both or neither; enforced on every start when set |
+| `PANEL_USERNAME`, `PANEL_PASSWORD` | — | required; the panel login, applied on every start |
 | `TRUSTED_PROXIES` | `private_ranges` | edge mode: which upstream addresses may supply the client IP |
 
 All upstream `XUI_*` variables still work.
 
-`PANEL_PATH` and the panel's listen address (`127.0.0.1`) are written to the panel from
-the environment on every start, so changing them in the panel UI does not stick. The
+`PANEL_PATH`, the login and the panel's listen address (`127.0.0.1`) are written to the
+panel from the environment on every start, so changing them in the panel UI does not stick. The
 panel does not strip a proxy prefix, which is why its base path has to equal the public
 sub-path.
 
@@ -94,13 +91,16 @@ A setting the entrypoint rejects stops the container at start with a line beginn
 
 In the panel, *Inbounds → Add Inbound*:
 
-1. Protocol `vless`, listen IP `127.0.0.1`, port between `10000` and `10999`, e.g. `10001`.
-2. Transmission `XHTTP` (preferred; Xray marks WebSocket as deprecated), `WebSocket` or
-   `HTTPUpgrade`, with the path `VPN_PATH_PREFIX/<port>`, e.g. `/vpn/10001`.
-3. Security `none`. TLS is added in front, by the platform or by Caddy.
+1. *Basics* tab: protocol `vless`, Address `127.0.0.1` (this is the listen address), port
+   between `10000` and `10999`, e.g. `10001`.
+2. *Stream* tab: Transmission `XHTTP` (preferred; Xray marks WebSocket as deprecated),
+   `WebSocket` or `HTTPUpgrade`, with the path `VPN_PATH_PREFIX/<port>`, e.g.
+   `/vpn/10001`. Leave Host blank.
+3. *Security* tab: `none`. TLS is added in front, by the platform or by Caddy.
 4. On the *Hosts* page (sidebar), add a host for this inbound: address = your public
-   hostname, port `443`, security `tls`, SNI = the hostname. This makes the generated
-   links and QR codes point at `hostname:443` with TLS.
+   hostname, port `443`, security `tls`, SNI = the hostname. Both are bare hostnames, with
+   no `https://`. This makes the generated links and QR codes point at `hostname:443`
+   with TLS.
 
 The path must start with `VPN_PATH_PREFIX`, not `PANEL_PATH`. Requests under the panel
 path go to the panel and return 404.

@@ -34,15 +34,16 @@ case "$PROXY_MODE" in
 esac
 export PORT PANEL_PATH PANEL_PATH_NOSLASH VPN_PATH_PREFIX
 
+# Required: the panel's fallback is a generated login printed once in the log,
+# which is easy to miss on a platform.
+[ -n "${PANEL_USERNAME:-}" ] || fail "PANEL_USERNAME is required"
+[ -n "${PANEL_PASSWORD:-}" ] || fail "PANEL_PASSWORD is required"
+
 # The panel does not strip a proxy prefix, so its base path must equal the
 # public sub-path. Bind it to loopback: only Caddy should reach it.
-set -- -webBasePath "$PANEL_PATH" -listenIP 127.0.0.1
-if [ -n "${PANEL_USERNAME:-}" ] && [ -n "${PANEL_PASSWORD:-}" ]; then
-    set -- "$@" -username "$PANEL_USERNAME" -password "$PANEL_PASSWORD"
-elif [ -n "${PANEL_USERNAME:-}${PANEL_PASSWORD:-}" ]; then
-    fail "set both PANEL_USERNAME and PANEL_PASSWORD, or neither"
-fi
-/app/x-ui setting "$@" >/dev/null || fail "could not apply panel settings"
+/app/x-ui setting -webBasePath "$PANEL_PATH" -listenIP 127.0.0.1 \
+    -username "$PANEL_USERNAME" -password "$PANEL_PASSWORD" >/dev/null ||
+    fail "could not apply panel settings"
 
 mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME"
 echo "[managed] mode=$PROXY_MODE panel=$PANEL_PATH vpn=$VPN_PATH_PREFIX/<10000-10999>"
