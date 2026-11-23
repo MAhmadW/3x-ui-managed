@@ -41,13 +41,20 @@ The names of these steps differ per platform, but the steps are the same:
    | `VPN_PATH_PREFIX` | a *different* random path, e.g. `/a71e…` |
    | `PANEL_USERNAME`, `PANEL_PASSWORD` | your panel login (required) |
 
-2. Attach a persistent volume at `/etc/x-ui`. Without it, every redeploy wipes users and
-   inbounds. On a platform with no persistent disk, set `XUI_DB_TYPE=postgres` and
+2. Attach a persistent volume at `/etc/x-ui`, **before** you configure anything in the
+   panel. On a platform with no persistent disk, set `XUI_DB_TYPE=postgres` and
    `XUI_DB_DSN` instead.
 3. Give the service a public HTTPS domain that forwards to container port `8080`, the
    same value as `PORT`. If the platform injects its own `PORT`, leave the variable out
    and let the platform route to that port.
 4. Deploy.
+
+> [!WARNING]
+> Do not skip step 2. Without a volume, the container's disk is recreated on **every
+> deploy**, and on a service built from a Git repository every push is a deploy. Each one
+> starts from an empty database: inbounds, clients, hosts and panel settings are gone.
+> Only the login survives, because it is re-applied from `PANEL_USERNAME` and
+> `PANEL_PASSWORD`.
 
 The panel is then at `https://<domain><PANEL_PATH>`. Every other path, including the
 default `/panel/`, returns 404 by design.
@@ -151,6 +158,15 @@ mismatch.
 ### After any change to the inbound
 
 Re-copy the share link. The client keeps the old path, port and security until you do.
+
+### It worked, then stopped after a deploy
+
+The client goes back to delay `-1`, the platform's HTTP log shows 502 on the VPN path,
+and the panel has no inbounds. The service has no volume at `/etc/x-ui`, so the deploy
+started from an empty database. A push to the repository is enough to trigger it.
+
+Attach a volume at `/etc/x-ui`, then recreate the inbound and the host, and re-import
+the link. The client ID changes with the new inbound, so the old profile cannot be reused.
 
 ### REALITY
 

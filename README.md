@@ -45,7 +45,7 @@ Only VLESS has been tested. Other protocols that can ride the same HTTP transpor
 - **The platform can observe your traffic's metadata.** TLS ends at the platform's edge, so between the edge and your container the platform can see the client identifier and the destinations of connections. Content that is itself encrypted (HTTPS) stays encrypted to the destination.
 - **No Fail2ban enforcement.** IP-limit bans need the `NET_ADMIN` capability, which managed platforms do not grant.
 - **Long-lived connections are at the platform's mercy.** Idle timeouts, maximum request durations and request buffering vary by platform.
-- **Storage must be persistent.** Without a mounted volume or an external PostgreSQL database, every redeploy wipes users and inbounds.
+- **Storage must be persistent.** Without a mounted volume or an external PostgreSQL database, every deploy wipes users and inbounds, including a deploy triggered by a push to the repository.
 
 ## The setup that worked for us
 

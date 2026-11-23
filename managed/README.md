@@ -60,7 +60,9 @@ Point the platform at the repository's `Dockerfile`. It builds this image by def
 - Route the platform's public HTTPS port to the container's `$PORT`. Most platforms
   inject `PORT` themselves; otherwise it is 8080.
 - Keep `/etc/x-ui` on a persistent volume, or set `XUI_DB_TYPE=postgres` and
-  `XUI_DB_DSN`. Without either, every redeploy wipes users and inbounds.
+  `XUI_DB_DSN`. Without either, every deploy starts from an empty disk and wipes the
+  inbounds, clients, hosts and panel settings. That includes a deploy triggered by a push
+  to the repository.
 
 The Dockerfile declares no `VOLUME`, because some platforms reject images that do. Mount
 the volume at deploy time.
