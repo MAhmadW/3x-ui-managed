@@ -1,0 +1,33 @@
+# Shared routing for both modes. Paths are passed upstream unchanged.
+
+# Panel: the panel's base path equals PANEL_PATH (set by entrypoint.sh).
+redir {$PANEL_PATH_NOSLASH} {$PANEL_PATH} 308
+@panel path {$PANEL_PATH}*
+handle @panel {
+	reverse_proxy 127.0.0.1:2053 {
+		# The panel only believes these when they agree with each other.
+		header_up X-Real-IP {client_ip}
+		header_up X-Forwarded-For {client_ip}
+	}
+}
+
+# VLESS inbounds: <prefix>/<port>[/...] -> the Xray inbound listening on
+# 127.0.0.1:<port>. Only ports 10000-10999 are reachable this way.
+@vpn path_regexp vpn ^{$VPN_PATH_PREFIX}/(10[0-9]{3})(/.*)?$
+handle @vpn {
+	reverse_proxy 127.0.0.1:{re.vpn.1} {
+		flush_interval -1
+		transport http {
+			read_timeout 0
+			write_timeout 0
+		}
+	}
+}
+
+# Everything else: the subscription server (its paths are random per install).
+handle {
+	reverse_proxy 127.0.0.1:2096 {
+		header_up X-Real-IP {client_ip}
+		header_up X-Forwarded-For {client_ip}
+	}
+}

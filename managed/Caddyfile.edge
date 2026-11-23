@@ -1,0 +1,12 @@
+# edge mode: the platform terminates TLS and forwards plain HTTP to $PORT.
+{
+	admin off
+	servers {
+		# Take the client IP and scheme from the platform's forwarded headers.
+		trusted_proxies static {$TRUSTED_PROXIES:private_ranges}
+	}
+}
+
+http://:{$PORT} {
+	import routes.caddy
+}

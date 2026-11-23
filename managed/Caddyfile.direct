@@ -1,0 +1,9 @@
+# direct mode: the container owns port 443 and Caddy obtains the certificate
+# (TLS-ALPN challenge on 443; port 80 is optional).
+{
+	admin off
+}
+
+{$DOMAIN} {
+	import routes.caddy
+}

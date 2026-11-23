@@ -34,7 +34,7 @@ RUN ./DockerInit.sh "$TARGETARCH" "$TARGETVARIANT"
 # ========================================================
 # Stage: Final Image of 3x-ui
 # ========================================================
-FROM alpine
+FROM alpine AS upstream
 ENV TZ=Asia/Tehran
 WORKDIR /app
 
@@ -70,6 +70,29 @@ ENV XUI_ENABLE_FAIL2BAN="true"
 ENV XUI_DB_TYPE=""
 ENV XUI_DB_DSN=""
 EXPOSE 2053
-VOLUME [ "/etc/x-ui" ]
+# No VOLUME: some managed platforms (Railway, for one) reject images that
+# declare one. Mount /etc/x-ui at deploy time to keep the database.
 CMD [ "./x-ui" ]
 ENTRYPOINT [ "/app/DockerEntrypoint.sh" ]
+
+# ========================================================
+# Stage: managed — single-port image (Caddy in front of the
+# panel, the subscription server and Xray inbounds).
+# This is the default build target; use --target upstream
+# for the stock 3x-ui image.
+# ========================================================
+FROM upstream AS managed
+RUN apk add --no-cache caddy
+COPY managed/ /app/managed/
+RUN chmod +x /app/managed/entrypoint.sh
+ENV XUI_ENABLE_FAIL2BAN="false"
+ENV XUI_SKIP_HSTS="true"
+ENV XUI_PORT="2053"
+ENV XDG_DATA_HOME="/etc/x-ui/caddy/data"
+ENV XDG_CONFIG_HOME="/etc/x-ui/caddy/config"
+ENV PROXY_MODE="edge"
+ENV PORT="8080"
+ENV PANEL_PATH="/panel/"
+ENV VPN_PATH_PREFIX="/vpn"
+EXPOSE 8080 443
+ENTRYPOINT [ "/app/managed/entrypoint.sh" ]
