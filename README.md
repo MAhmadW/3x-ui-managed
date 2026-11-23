@@ -1,5 +1,3 @@
-[English](/README.md) | [فارسی](/README.fa_IR.md) | [العربية](/README.ar_EG.md) | [中文](/README.zh_CN.md) | [Español](/README.es_ES.md) | [Русский](/README.ru_RU.md) | [Türkçe](/README.tr_TR.md)
-
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./media/3x-ui-dark.png">
@@ -7,24 +5,54 @@
   </picture>
 </p>
 
-<p align="center">
-  <a href="https://github.com/MHSanaei/3x-ui/releases"><img src="https://img.shields.io/github/v/release/mhsanaei/3x-ui" alt="Release"></a>
-  <a href="https://github.com/MHSanaei/3x-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/mhsanaei/3x-ui/release.yml.svg" alt="Build"></a>
-  <a href="#"><img src="https://img.shields.io/github/go-mod/go-version/mhsanaei/3x-ui.svg" alt="GO Version"></a>
-  <a href="https://github.com/MHSanaei/3x-ui/releases/latest"><img src="https://img.shields.io/github/downloads/mhsanaei/3x-ui/total.svg" alt="Downloads"></a>
-  <a href="https://www.gnu.org/licenses/gpl-3.0.en.html"><img src="https://img.shields.io/badge/license-GPL%20V3-blue.svg?longCache=true" alt="License"></a>
-  <a href="https://pkg.go.dev/github.com/mhsanaei/3x-ui/v3"><img src="https://pkg.go.dev/badge/github.com/mhsanaei/3x-ui/v3.svg" alt="Go Reference"></a>
-  <a href="https://docs.sanaei.dev"><img src="https://img.shields.io/badge/docs-docs.sanaei.dev-22d3ee" alt="Documentation"></a>
-</p>
+**3X-UI Managed** is a fork of [3X-UI](https://github.com/MHSanaei/3x-ui), the web control panel for [Xray-core](https://github.com/XTLS/Xray-core) by [MHSanaei](https://github.com/MHSanaei) and its contributors. The panel itself is upstream's work; this fork changes how it is packaged and deployed.
 
-**3X-UI** is an advanced, open-source web control panel for managing [Xray-core](https://github.com/XTLS/Xray-core) servers. It provides a clean, multi-language interface for deploying, configuring, and monitoring a wide range of proxy and VPN protocols — from a single VPS to multi-node deployments.
-
-Built as an enhanced fork of the original X-UI project, 3X-UI adds broader protocol support, improved stability, per-client traffic accounting, and many quality-of-life features.
+The fork targets **managed container platforms**: services that run a single container, give it no host networking or extra kernel capabilities, and expose **one HTTP port** (80/443) behind their own HTTPS edge. Stock 3X-UI assumes a server where the panel, the subscription server and every inbound each get their own port. Here, the panel and the VPN connections share the one port the platform provides.
 
 > [!IMPORTANT]
-> This project is intended for personal use only. Please do not use it for illegal purposes or in a production environment.
+> Before deploying, read the terms of service and acceptable-use policy of the platform you are deploying to, and follow them. Many hosting platforms restrict or prohibit proxy and VPN workloads. Compliance is your responsibility.
+>
+> As with upstream, this project is intended for personal use only. Do not use it for illegal purposes or in a production environment.
 
-## Features
+> [!NOTE]
+> The single-port image and its setup guide are being added in the commits that follow this README. Until they land, this repository builds the same panel as upstream.
+
+## What works, and what does not
+
+Behind a platform's HTTPS edge, the platform terminates TLS and forwards plain HTTP to the container. That decides which protocols are usable.
+
+**Works**
+
+- **VLESS over an HTTP-based transport**: XHTTP (recommended), WebSocket (deprecated by Xray) or HTTPUpgrade.
+- The panel, on a sub-path of the same hostname.
+- Subscriptions, on the same hostname.
+
+Only VLESS has been tested. Other protocols that can ride the same HTTP transports may work but are unverified.
+
+**Does not work behind an HTTPS edge**
+
+- **REALITY** and **XTLS-Vision / raw TCP**: they need the client's raw TLS or TCP stream, which the platform consumes.
+- **gRPC transport**: needs HTTP/2 end to end, which many platform edges do not provide.
+- **Anything UDP-based**: mKCP, Hysteria2, TUIC, WireGuard and AmneziaWG.
+- **Protocols with their own listener on a raw port**: MTProto, Shadowsocks, and plain HTTP/SOCKS inbounds.
+
+**Other limits to know about**
+
+- **The platform can observe your traffic's metadata.** TLS ends at the platform's edge, so between the edge and your container the platform can see the client identifier and the destinations of connections. Content that is itself encrypted (HTTPS) stays encrypted to the destination.
+- **No Fail2ban enforcement.** IP-limit bans need the `NET_ADMIN` capability, which managed platforms do not grant.
+- **Long-lived connections are at the platform's mercy.** Idle timeouts, maximum request durations and request buffering vary by platform.
+- **Storage must be persistent.** Without a mounted volume or an external PostgreSQL database, every redeploy wipes users and inbounds.
+
+## The setup that worked for us
+
+- **Platform:** [Railway](https://railway.com), one service with a volume mounted at `/etc/x-ui`.
+- **Panel:** served on an unguessable sub-path of the service's public HTTPS domain.
+- **VPN:** one VLESS inbound over XHTTP, reached on port 443 of the same domain, with TLS provided by Railway.
+- **Client:** v2rayN on macOS, importing the share link generated by the panel.
+
+## Panel features (from upstream)
+
+The feature list below describes the 3X-UI panel as a whole. On a managed platform, only the subset described above is reachable from outside the container.
 
 - **Multi-protocol inbounds** — VLESS, VMess, Trojan, Shadowsocks, WireGuard, AmneziaWG, TUIC v5, Hysteria2, MTProto, HTTP, SOCKS (Mixed), Dokodemo-door / Tunnel, and TUN.
 - **Modern transports & security** — TCP (Raw), mKCP, WebSocket, gRPC, HTTPUpgrade, and XHTTP, secured with TLS, XTLS, and REALITY.
@@ -71,45 +99,9 @@ Built as an enhanced fork of the original X-UI project, 3X-UI adds broader proto
 
 </details>
 
-## Quick Start
+## Installing on a regular server
 
-```bash
-bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)
-```
-
-To install a specific version, append its tag (e.g. `v3.7.0`):
-
-```bash
-bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh) v3.7.0
-```
-
-To install the rolling **dev** build (latest per-commit pre-release from `main`, not a stable release), pass `dev-latest`:
-
-```bash
-bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh) dev-latest
-```
-
-During installation a random username, password, and access path are generated. After installation, run `x-ui` to open the management menu, where you can start/stop the service, view or reset your login credentials, manage SSL certificates, and more.
-
-Every release asset is published with a `.sha256` sum next to it. Both `install.sh` and the updater verify the archive against that sum and abort on a mismatch.
-
-For full documentation — installation, configuration, operations, and the complete API reference — visit **[docs.sanaei.dev](https://docs.sanaei.dev)**.
-
-### Unattended install
-
-The installer also runs **non-interactively** for cloud-init.
-Set `XUI_NONINTERACTIVE=1` (or pipe with no TTY) and it installs end-to-end with
-zero prompts, generating random credentials and writing them to
-`/etc/x-ui/install-result.env`. See [`deploy/`](deploy/) for:
-
-- [Cloud-init user-data](deploy/cloud-init/) — unattended install on any cloud (Hetzner/AWS/DO/Vultr/GCP/Azure/Oracle)
-- [Hetzner Cloud notes](deploy/marketplace/hetzner/) — cloud-init deployment on Hetzner
-
-## Supported Platforms
-
-**Operating systems:** Ubuntu, Debian, Armbian, Fedora, CentOS, RHEL, AlmaLinux, Rocky Linux, Oracle Linux, Amazon Linux, Virtuozzo, Arch, Manjaro, Parch, openSUSE (Tumbleweed / Leap), Alpine, and Windows.
-
-**Architectures:** `amd64` · `386` · `arm64` (aarch64) · `armv7` · `armv6` · `armv5` · `s390x`.
+This fork does not publish releases or an installer. For a normal VPS install, where each inbound gets its own port and every protocol is available, use [upstream 3X-UI](https://github.com/MHSanaei/3x-ui) and its [documentation](https://docs.sanaei.dev).
 
 ## Database Options
 
@@ -183,7 +175,7 @@ English · فارسی · العربية · 中文（简体） · 中文（繁體
 
 ## Contributing
 
-Contributions are welcome. Please read the [Contributing Guide](/CONTRIBUTING.md) before opening an issue or pull request.
+Bugs and feature requests for the panel itself belong [upstream](https://github.com/MHSanaei/3x-ui). Issues and pull requests here should concern the single-port packaging and deployment. The [Contributing Guide](/CONTRIBUTING.md) describes the development setup and conventions, which this fork keeps.
 
 ## A Special Thanks to
 
@@ -200,32 +192,3 @@ Tools and integrations built by the community around 3x-ui.
 
 - [terraform-provider-3x-ui](https://github.com/batonogov/terraform-provider-threexui) (License: **MIT**): _Manage inbounds, clients, panel settings, and Xray configuration as code with Terraform / OpenTofu._
 - [3X-UI Manager](https://github.com/yukh975/3X-UI-Manager) (License: **MIT**): _Native Android client for 3x-ui — dashboard, inbounds, clients with QR sharing, nodes and multi-panel management. Available on F-Droid._
-
-## Support project
-
-**If this project is helpful to you, you may wish to give it a**:star2:
-
-<a href="https://www.buymeacoffee.com/MHSanaei" target="_blank">
-<img src="./media/default-yellow.png" alt="Buy Me A Coffee" style="height: 70px !important;width: 277px !important;" >
-</a>
-
-</br>
-<a href="https://nowpayments.io/donation/hsanaei" target="_blank" rel="noreferrer noopener">
-   <img src="./media/donation-button-black.svg" alt="Crypto donation button by NOWPayments">
-</a>
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=mhsanaei%2F3x-ui&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=mhsanaei/3x-ui&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=mhsanaei/3x-ui&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=mhsanaei/3x-ui&type=date&legend=top-left" />
- </picture>
-</a>
-
-<p align="center">
- <a href="https://www.star-history.com/mhsanaei/3x-ui">
-  <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=MHSanaei/3x-ui&type=rank&theme=dark" /><source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=MHSanaei/3x-ui&type=rank" /><img alt="Star History Rank" src="https://api.star-history.com/badge?repo=MHSanaei/3x-ui&type=rank" /></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=MHSanaei/3x-ui&type=trending&theme=dark" /><source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=MHSanaei/3x-ui&type=trending" /><img alt="GitHub Trending Repository of the Day" src="https://api.star-history.com/badge?repo=MHSanaei/3x-ui&type=trending" /></picture>
- </a>
-</p>
